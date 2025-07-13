@@ -12,10 +12,10 @@ const char* password = "23457890";
 WiFiServer server(8080);
 WiFiClient client;
 
-// I2S麦克风配置
-#define I2S_WS 15
-#define I2S_SD 13
-#define I2S_SCK 2
+// I2S麦克风配置 - ESP32S3 XIAO Sense引脚
+#define I2S_WS 15      // Word Select (WS)
+#define I2S_SD 13      // Serial Data (SD)
+#define I2S_SCK 2      // Serial Clock (SCK)
 #define I2S_PORT I2S_NUM_0
 #define BUFFER_SIZE 1024
 
@@ -61,16 +61,16 @@ void loop() {
 }
 
 void initI2SMic() {
-  // I2S配置
+  // I2S配置 - 针对ESP32S3优化
   const i2s_config_t i2s_config = {
     .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
     .sample_rate = 16000,
     .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
     .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-    .communication_format = I2S_COMM_FORMAT_STAND_I2S,
+    .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_STAND_I2S),
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-    .dma_buf_count = 4,
-    .dma_buf_len = BUFFER_SIZE,
+    .dma_buf_count = 8,
+    .dma_buf_len = 1024,
     .use_apll = false,
     .tx_desc_auto_clear = false,
     .fixed_mclk = 0
@@ -85,9 +85,23 @@ void initI2SMic() {
   };
   
   // 初始化I2S
-  i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
-  i2s_set_pin(I2S_PORT, &pin_config);
-  i2s_start(I2S_PORT);
+  esp_err_t err = i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
+  if (err != ESP_OK) {
+    Serial.printf("I2S驱动安装失败: %s\n", esp_err_to_name(err));
+    return;
+  }
+  
+  err = i2s_set_pin(I2S_PORT, &pin_config);
+  if (err != ESP_OK) {
+    Serial.printf("I2S引脚设置失败: %s\n", esp_err_to_name(err));
+    return;
+  }
+  
+  err = i2s_start(I2S_PORT);
+  if (err != ESP_OK) {
+    Serial.printf("I2S启动失败: %s\n", esp_err_to_name(err));
+    return;
+  }
   
   Serial.println("I2S麦克风初始化完成");
 }
@@ -98,22 +112,29 @@ void connectToWiFi() {
   
   WiFi.begin(ssid, password);
   
-  while (WiFi.status() != WL_CONNECTED) {
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
     Serial.print(".");
+    attempts++;
   }
   
-  Serial.println("");
-  Serial.println("WiFi连接成功!");
-  Serial.print("IP地址: ");
-  Serial.println(WiFi.localIP());
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("");
+    Serial.println("WiFi连接成功!");
+    Serial.print("IP地址: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("");
+    Serial.println("WiFi连接失败!");
+  }
 }
 
 void readAudioData() {
   size_t bytesRead = 0;
-  i2s_read(I2S_PORT, &audioBuffer[audioBufferIndex], sizeof(int16_t), &bytesRead, 100);
+  esp_err_t err = i2s_read(I2S_PORT, &audioBuffer[audioBufferIndex], sizeof(int16_t), &bytesRead, 100);
   
-  if (bytesRead > 0) {
+  if (err == ESP_OK && bytesRead > 0) {
     audioBufferIndex++;
     
     // 当缓冲区满时，准备发送数据

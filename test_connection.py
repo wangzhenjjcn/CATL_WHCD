@@ -7,7 +7,7 @@ import socket
 import json
 import time
 
-def test_connection(host='192.168.1.100', port=8080, timeout=5):
+def test_connection(host='192.168.0.194', port=8080, timeout=5):
     """测试与ESP32S3的连接"""
     print(f"测试连接到 {host}:{port}")
     

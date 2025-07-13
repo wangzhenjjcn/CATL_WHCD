@@ -16,7 +16,7 @@ class DataReceiver(QObject):
     data_received = pyqtSignal(list)
     connection_status = pyqtSignal(bool, str)
     
-    def __init__(self, host='192.168.1.100', port=8080):
+    def __init__(self, host='192.168.0.194', port=8080):
         super().__init__()
         self.host = host
         self.port = port
@@ -159,7 +159,7 @@ class FixedAudioVisualizer(QMainWindow):
         connection_layout.addWidget(QLabel("设备IP:"), 0, 0)
         self.ip_input = QTextEdit()
         self.ip_input.setMaximumHeight(30)
-        self.ip_input.setText("192.168.1.100")
+        self.ip_input.setText("192.168.0.194")
         connection_layout.addWidget(self.ip_input, 0, 1)
         
         # 端口设置
